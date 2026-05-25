@@ -10,7 +10,7 @@ from pydantic import BaseModel
 # -----------------------------
 
 vectorizer = joblib.load(
-    "../models/vectorizer.pkl"
+    "models/vectorizer.pkl"
 )
 
 
@@ -21,14 +21,14 @@ vectorizer = joblib.load(
 models = {}
 
 model_files = {
-    "Impact": "../models/impact_model.pkl",
-    "Urgency": "../models/urgency_model.pkl",
-    "Priority": "../models/priority_model.pkl",
-    "Category": "../models/category_model.pkl",
-    "Subcategory": "../models/subcategory_model.pkl",
-    "Group": "../models/group_model.pkl",
-    "Request Type": "../models/request_type_model.pkl",
-    "Environment Type": "../models/environment_type_model.pkl"
+    "Impact": "models//impact_model.pkl",
+    "Urgency": "models/urgency_model.pkl",
+    "Priority": "models/priority_model.pkl",
+    "Category": "models/category_model.pkl",
+    "Subcategory": "models/subcategory_model.pkl",
+    "Group": "models/roup_model.pkl",
+    "Request Type": "models/request_type_model.pkl",
+    "Environment Type": "models/environment_type_model.pkl"
 }
 
 for field, path in model_files.items():
