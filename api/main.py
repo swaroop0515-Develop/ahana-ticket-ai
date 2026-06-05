@@ -6,18 +6,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 
-# ----------------------------------
+# -----------------------------------
 # LOAD VECTORIZER
-# ----------------------------------
+# -----------------------------------
 
 vectorizer = joblib.load(
     "models/vectorizer.pkl"
 )
 
 
-# ----------------------------------
+# -----------------------------------
 # LOAD MODELS
-# ----------------------------------
+# -----------------------------------
 
 models = {}
 
@@ -35,21 +35,16 @@ model_files = {
 for field, path in model_files.items():
 
     try:
-
         models[field] = joblib.load(path)
-
         print(f"✅ {field} model loaded")
 
     except Exception as e:
-
-        print(
-            f"❌ {field} model not found: {e}"
-        )
+        print(f"❌ Failed to load {field}: {e}")
 
 
-# ----------------------------------
+# -----------------------------------
 # FASTAPI APP
-# ----------------------------------
+# -----------------------------------
 
 app = FastAPI(
     title="Ticket Classification API",
@@ -57,43 +52,32 @@ app = FastAPI(
 )
 
 
-# ----------------------------------
+# -----------------------------------
 # CORS
-# ----------------------------------
+# -----------------------------------
 
 app.add_middleware(
     CORSMiddleware,
-
-    allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:5174",
-        "*"
-    ],
-
+    allow_origins=["*"],  # Change later for production
     allow_credentials=True,
-
     allow_methods=["*"],
-
     allow_headers=["*"],
 )
 
 
-# ----------------------------------
-# INPUT MODEL
-# ----------------------------------
+# -----------------------------------
+# REQUEST MODEL
+# -----------------------------------
 
 class TicketRequest(BaseModel):
-
     subject: str
-
     description: str
-
     account: str
 
 
-# ----------------------------------
+# -----------------------------------
 # CLEAN TEXT
-# ----------------------------------
+# -----------------------------------
 
 def clean_text(text):
 
@@ -114,9 +98,9 @@ def clean_text(text):
     return text.strip()
 
 
-# ----------------------------------
-# PREDICT TICKET
-# ----------------------------------
+# -----------------------------------
+# PREDICTION FUNCTION
+# -----------------------------------
 
 def predict_ticket(
     subject,
@@ -124,17 +108,11 @@ def predict_ticket(
     account
 ):
 
-    subject = clean_text(
-        subject
-    )
+    subject = clean_text(subject)
 
-    description = clean_text(
-        description
-    )
+    description = clean_text(description)
 
-    account = clean_text(
-        account
-    )
+    account = clean_text(account)
 
     combined_text = (
         f"{subject} "
@@ -142,50 +120,43 @@ def predict_ticket(
         f"{account}"
     )
 
-    vector =
-        vectorizer.transform(
-            [combined_text]
-        )
+    vector = vectorizer.transform(
+        [combined_text]
+    )
 
     predictions = {}
 
     for field, model in models.items():
 
-        prediction =
-            model.predict(
-                vector
-            )[0]
+        prediction = model.predict(
+            vector
+        )[0]
 
-        predictions[
-            field
-        ] = str(
+        predictions[field] = str(
             prediction
         )
 
     return predictions
 
 
-# ----------------------------------
+# -----------------------------------
 # HEALTH CHECK
-# ----------------------------------
+# -----------------------------------
 
 @app.get("/")
-
 def root():
 
     return {
         "status": "running",
-        "message":
-        "Ticket Classification API"
+        "message": "Ticket Classification API"
     }
 
 
-# ----------------------------------
-# PREDICTION ENDPOINT
-# ----------------------------------
+# -----------------------------------
+# PREDICT API
+# -----------------------------------
 
 @app.post("/predict")
-
 def predict(
     request: TicketRequest
 ):
