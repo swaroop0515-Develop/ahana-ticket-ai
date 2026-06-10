@@ -1,3 +1,4 @@
+```python
 import re
 import joblib
 
@@ -48,7 +49,7 @@ for field, path in model_files.items():
 
 app = FastAPI(
     title="Ticket Classification API",
-    version="2.0"
+    version="2.1"
 )
 
 
@@ -124,6 +125,12 @@ def predict_ticket(
 
     predictions = {}
 
+    # Fields excluded from Overall/Minimum Confidence
+    excluded_from_overall = [
+        "Subcategory",
+        "Group"
+    ]
+
     confidence_scores = []
 
     for field, model in models.items():
@@ -136,7 +143,6 @@ def predict_ticket(
 
             confidence = 0.0
 
-            # Get confidence if supported
             if hasattr(
                 model,
                 "predict_proba"
@@ -159,21 +165,23 @@ def predict_ticket(
                 f"{field}Confidence"
             ] = confidence
 
-            confidence_scores.append(
-                confidence
-            )
+            # Exclude Group & Subcategory
+            if field not in excluded_from_overall:
+                confidence_scores.append(
+                    confidence
+                )
 
         except Exception as e:
+
+            print(
+                f"Prediction failed for {field}: {e}"
+            )
 
             predictions[field] = None
 
             predictions[
                 f"{field}Confidence"
             ] = 0.0
-
-            print(
-                f"Prediction failed for {field}: {e}"
-            )
 
     # =================================================
     # OVERALL CONFIDENCE
@@ -210,7 +218,7 @@ def predict_ticket(
 
 
 # =====================================================
-# ROOT ENDPOINT
+# ROOT API
 # =====================================================
 
 @app.get("/")
@@ -232,14 +240,12 @@ def health():
     return {
         "status": "healthy",
         "models_loaded": len(models),
-        "model_names": list(
-            models.keys()
-        )
+        "models": list(models.keys())
     }
 
 
 # =====================================================
-# PREDICT ENDPOINT
+# PREDICT API
 # =====================================================
 
 @app.post("/predict")
@@ -247,10 +253,17 @@ def predict(
     request: TicketRequest
 ):
 
-    result = predict_ticket(
+    return predict_ticket(
         request.subject,
         request.description,
         request.account
     )
 
-    return result
+
+# =====================================================
+# RUN
+# =====================================================
+#
+# uvicorn app:app --host 0.0.0.0 --port 8000 --reload
+#
+```
