@@ -6,18 +6,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 
-# -----------------------------------
+# =====================================================
 # LOAD VECTORIZER
-# -----------------------------------
+# =====================================================
 
 vectorizer = joblib.load(
     "models/vectorizer.pkl"
 )
 
 
-# -----------------------------------
+# =====================================================
 # LOAD MODELS
-# -----------------------------------
+# =====================================================
 
 models = {}
 
@@ -42,32 +42,32 @@ for field, path in model_files.items():
         print(f"❌ Failed to load {field}: {e}")
 
 
-# -----------------------------------
+# =====================================================
 # FASTAPI APP
-# -----------------------------------
+# =====================================================
 
 app = FastAPI(
     title="Ticket Classification API",
-    version="1.0"
+    version="2.0"
 )
 
 
-# -----------------------------------
+# =====================================================
 # CORS
-# -----------------------------------
+# =====================================================
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Change later for production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["*"]
 )
 
 
-# -----------------------------------
+# =====================================================
 # REQUEST MODEL
-# -----------------------------------
+# =====================================================
 
 class TicketRequest(BaseModel):
     subject: str
@@ -75,9 +75,9 @@ class TicketRequest(BaseModel):
     account: str
 
 
-# -----------------------------------
-# CLEAN TEXT
-# -----------------------------------
+# =====================================================
+# TEXT CLEANING
+# =====================================================
 
 def clean_text(text):
 
@@ -98,9 +98,9 @@ def clean_text(text):
     return text.strip()
 
 
-# -----------------------------------
+# =====================================================
 # PREDICTION FUNCTION
-# -----------------------------------
+# =====================================================
 
 def predict_ticket(
     subject,
@@ -109,9 +109,7 @@ def predict_ticket(
 ):
 
     subject = clean_text(subject)
-
     description = clean_text(description)
-
     account = clean_text(account)
 
     combined_text = (
@@ -126,22 +124,94 @@ def predict_ticket(
 
     predictions = {}
 
+    confidence_scores = []
+
     for field, model in models.items():
 
-        prediction = model.predict(
-            vector
-        )[0]
+        try:
 
-        predictions[field] = str(
-            prediction
+            prediction = model.predict(
+                vector
+            )[0]
+
+            confidence = 0.0
+
+            # Get confidence if supported
+            if hasattr(
+                model,
+                "predict_proba"
+            ):
+
+                probabilities = model.predict_proba(
+                    vector
+                )[0]
+
+                confidence = round(
+                    float(max(probabilities)) * 100,
+                    2
+                )
+
+            predictions[field] = str(
+                prediction
+            )
+
+            predictions[
+                f"{field}Confidence"
+            ] = confidence
+
+            confidence_scores.append(
+                confidence
+            )
+
+        except Exception as e:
+
+            predictions[field] = None
+
+            predictions[
+                f"{field}Confidence"
+            ] = 0.0
+
+            print(
+                f"Prediction failed for {field}: {e}"
+            )
+
+    # =================================================
+    # OVERALL CONFIDENCE
+    # =================================================
+
+    if confidence_scores:
+
+        predictions[
+            "OverallConfidence"
+        ] = round(
+            sum(confidence_scores)
+            / len(confidence_scores),
+            2
         )
+
+        predictions[
+            "MinimumConfidence"
+        ] = round(
+            min(confidence_scores),
+            2
+        )
+
+    else:
+
+        predictions[
+            "OverallConfidence"
+        ] = 0.0
+
+        predictions[
+            "MinimumConfidence"
+        ] = 0.0
 
     return predictions
 
 
-# -----------------------------------
-# HEALTH CHECK
-# -----------------------------------
+# =====================================================
+# ROOT ENDPOINT
+# =====================================================
 
 @app.get("/")
 def root():
@@ -152,9 +222,25 @@ def root():
     }
 
 
-# -----------------------------------
-# PREDICT API
-# -----------------------------------
+# =====================================================
+# HEALTH CHECK
+# =====================================================
+
+@app.get("/health")
+def health():
+
+    return {
+        "status": "healthy",
+        "models_loaded": len(models),
+        "model_names": list(
+            models.keys()
+        )
+    }
+
+
+# =====================================================
+# PREDICT ENDPOINT
+# =====================================================
 
 @app.post("/predict")
 def predict(
